@@ -5,6 +5,9 @@ import requests
 
 spark = SparkSession.builder.appName("MoviesCleansing").getOrCreate()
 spark.sparkContext.setLogLevel("WARN")
+spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true")
+spark.conf.set("spark.sql.adaptive.enabled", "false")
+
 
 schema_registry_url = "http://schema-registry:8081"
 topic_name = "kafka-class-db-001.demo.movies"

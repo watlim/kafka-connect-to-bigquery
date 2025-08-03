@@ -2,7 +2,7 @@
 CREATE DATABASE demo;
 use demo;
 
-ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'cP1YQ?X,$Od5/F~t';
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'M(XE(%~4Q(i@eXPO';
 -- BEGIN TABLE movies
 DROP TABLE IF EXISTS movies;
 CREATE TABLE `movies`
