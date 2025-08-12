@@ -3,63 +3,54 @@ from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.functions import col
 import requests
 
-spark = SparkSession.builder.appName("MoviesCleansing").getOrCreate()
-spark.sparkContext.setLogLevel("WARN")
-spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true")
-spark.conf.set("spark.sql.adaptive.enabled", "false")
+spack = SparkSession.builder \
+    .appName("StreamingJob") \
+    .getOrCreate()
+spack.sparkContext.setLogLevel("WARN") 
 
+raw_streaming_df = spack.readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "broker:29092") \
+    .option("subscribe", "kafka-class-db-001.demo.movies") \
+    .option("startingOffsets", "earliest") \
+    .load()
+
+# แสดงข้อความดิบ (แค่ debug)
+raw_streaming_df.selectExpr("CAST(value AS STRING)").writeStream.format("console") \
+    .option("truncate", False).start()
 
 schema_registry_url = "http://schema-registry:8081"
 topic_name = "kafka-class-db-001.demo.movies"
 
-# ดึง schema จาก schema registry
-def get_avro_schema(schema_registry_url, topic_name):
-    url = f"{schema_registry_url}/subjects/{topic_name}-value/versions/latest"
-    response = requests.get(url)
-    response.raise_for_status()
-    schema_json = response.json()['schema']
-    return schema_json
+def get_avro_schema(topic):
+    subject = f"{topic}-value"
+    latest_version_url = f"{schema_registry_url}/subjects/{subject}/versions/latest"
+    resp = requests.get(latest_version_url)
+    resp.raise_for_status()
+    return resp.json()["schema"]
 
-avro_schema = get_avro_schema(schema_registry_url, topic_name)
+avro_schema_str = get_avro_schema(topic_name)
+print("Avro Schema from Schema Registry:")
+print(avro_schema_str)
 
-# อ่าน Kafka stream
-df = spark.readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", "broker:29092") \
-    .option("subscribe", topic_name) \
-    .load()
+cleansed_df = raw_streaming_df.select(
+    from_avro(col("value"), avro_schema_str, {"mode": "PERMISSIVE"}).alias("data")
+).select("data.after.*")
 
-# แปลงข้อมูล avro จาก column "value"
-avro_df = df.select(from_avro(col("value"), avro_schema).alias("data")) \
-            .filter(col("data.after").isNotNull()) \
-            .select("data.after.*")
-
-
-avro_df.createOrReplaceTempView("input_table")
-
-try:
-    with open("/opt/spark-apps/cleansing.sql", "r") as f:
-        sql_query = f.read()
-except Exception as e:
-    spark.stop()
-    raise RuntimeError(f"Error reading SQL file: {e}")
-
-cleansed_df = spark.sql(sql_query)
-
-DEBUG_MODE = True
-
-if DEBUG_MODE:
+DEBUG = True
+if DEBUG:
     query = cleansed_df.writeStream \
+        .outputMode("append") \
         .format("console") \
-        .option("truncate", "false") \
+        .option("truncate", False) \
         .start()
 else:
-    query = cleansed_df.selectExpr("to_json(struct(*)) AS value") \
-        .writeStream \
+    query = cleansed_df.writeStream \
+        .outputMode("append") \
         .format("kafka") \
         .option("kafka.bootstrap.servers", "broker:29092") \
-        .option("topic", "cleaned-movies-topic") \
-        .option("checkpointLocation", "/opt/spark-apps/checkpoints/movies-cleaning") \
+        .option("topic", "kafka-class-db-001.demo.movies.clearsed") \
+        .option("checkpointLocation", "/tmp/kafka-class-db-001.demo.movies.clearsed.checkpoint") \
         .start()
 
 query.awaitTermination()
