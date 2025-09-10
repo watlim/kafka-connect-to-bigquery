@@ -172,3 +172,5 @@ services:
       - SPARK_MODE=master
     volumes:
       - ./spark-apps:/opt/spark-apps
+      - ./spark-checkpoints:/opt/spark-apps/checkpoints
+

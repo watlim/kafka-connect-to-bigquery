@@ -1,24 +1,30 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.functions import col
+from cleansing_rules import apply_cleansing
 import requests
 
-spack = SparkSession.builder \
-    .appName("StreamingJob") \
+# ------------------------------
+# Spark session
+# ------------------------------
+spark = SparkSession.builder \
+    .appName("StreamingJobCleansing") \
     .getOrCreate()
-spack.sparkContext.setLogLevel("WARN") 
+spark.sparkContext.setLogLevel("WARN")
 
-raw_streaming_df = spack.readStream \
+# ------------------------------
+# Kafka raw streaming
+# ------------------------------
+raw_streaming_df = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "broker:29092") \
     .option("subscribe", "kafka-class-db-001.demo.movies") \
     .option("startingOffsets", "earliest") \
     .load()
 
-# แสดงข้อความดิบ (แค่ debug)
-raw_streaming_df.selectExpr("CAST(value AS STRING)").writeStream.format("console") \
-    .option("truncate", False).start()
-
+# ------------------------------
+# Get Avro schema from Schema Registry
+# ------------------------------
 schema_registry_url = "http://schema-registry:8081"
 topic_name = "kafka-class-db-001.demo.movies"
 
@@ -33,11 +39,22 @@ avro_schema_str = get_avro_schema(topic_name)
 print("Avro Schema from Schema Registry:")
 print(avro_schema_str)
 
-cleansed_df = raw_streaming_df.select(
+# ------------------------------
+# Decode Avro message
+# ------------------------------
+decoded_df = raw_streaming_df.select(
     from_avro(col("value"), avro_schema_str, {"mode": "PERMISSIVE"}).alias("data")
-).select("data.after.*")
+).select("data.after.*")  # ถ้าไม่ใช่ Debezium ให้ใช้ "data.*"
 
-DEBUG = True
+# ------------------------------
+# Cleansing
+# ------------------------------
+cleansed_df = apply_cleansing(decoded_df)
+# ------------------------------
+# Write stream
+# ------------------------------
+DEBUG = True  # True = console, False = Kafka
+
 if DEBUG:
     query = cleansed_df.writeStream \
         .outputMode("append") \
@@ -49,8 +66,8 @@ else:
         .outputMode("append") \
         .format("kafka") \
         .option("kafka.bootstrap.servers", "broker:29092") \
-        .option("topic", "kafka-class-db-001.demo.movies.clearsed") \
-        .option("checkpointLocation", "/tmp/kafka-class-db-001.demo.movies.clearsed.checkpoint") \
+        .option("topic", "kafka-class-db-001.demo.movies.cleansed") \
+        .option("checkpointLocation", "/opt/spark-apps/checkpoints/kafka-class-db-001.demo.movies.cleansed.checkpoint") \
         .start()
 
 query.awaitTermination()
