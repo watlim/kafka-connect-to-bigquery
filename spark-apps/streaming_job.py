@@ -3,6 +3,7 @@ from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.functions import col
 from cleansing_rules import apply_cleansing
 import requests
+import os
 
 # ------------------------------
 # Spark session
@@ -62,12 +63,13 @@ if DEBUG:
         .option("truncate", False) \
         .start()
 else:
+    if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
+        raise EnvironmentError("Please set GOOGLE_APPLICATION_CREDENTIALS environment variable")
     query = cleansed_df.writeStream \
         .outputMode("append") \
-        .format("kafka") \
-        .option("kafka.bootstrap.servers", "broker:29092") \
-        .option("topic", "kafka-class-db-001.demo.movies.cleansed") \
-        .option("checkpointLocation", "/opt/spark-apps/checkpoints/kafka-class-db-001.demo.movies.cleansed.checkpoint") \
+        .format("bigquery") \
+        .option("table", "datath-th-kafka.bigquery_demo.movies_cleansed") \
+        .option("checkpointLocation", "/opt/spark-apps/checkpoints/datath-th-kafka.bigquery_demo.movies.cleansed.checkpoint") \
         .start()
 
 query.awaitTermination()

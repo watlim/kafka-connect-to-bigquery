@@ -170,7 +170,10 @@ services:
       - broker
     environment:
       - SPARK_MODE=master
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/creds/gcp_service_account.json
     volumes:
       - ./spark-apps:/opt/spark-apps
       - ./spark-checkpoints:/opt/spark-apps/checkpoints
+      - ./gcp_service_account.json:/opt/creds/gcp_service_account.json:ro
+
 
