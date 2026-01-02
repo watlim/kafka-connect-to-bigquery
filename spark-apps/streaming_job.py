@@ -6,7 +6,7 @@ import requests
 import os
 
 # ------------------------------
-# Spark session
+# spark session
 # ------------------------------
 spark = SparkSession.builder \
     .appName("StreamingJobCleansing") \
@@ -14,7 +14,7 @@ spark = SparkSession.builder \
 spark.sparkContext.setLogLevel("WARN")
 
 # ------------------------------
-# Kafka raw streaming
+# kafka raw streaming
 # ------------------------------
 raw_streaming_df = spark.readStream \
     .format("kafka") \
@@ -24,7 +24,7 @@ raw_streaming_df = spark.readStream \
     .load()
 
 # ------------------------------
-# Get Avro schema from Schema Registry
+# get Avro schema from Schema Registry
 # ------------------------------
 schema_registry_url = "http://schema-registry:8081"
 topic_name = "kafka-class-db-001.demo.movies"
@@ -41,18 +41,18 @@ print("Avro Schema from Schema Registry:")
 print(avro_schema_str)
 
 # ------------------------------
-# Decode Avro message
+# decode Avro message
 # ------------------------------
 decoded_df = raw_streaming_df.select(
     from_avro(col("value"), avro_schema_str, {"mode": "PERMISSIVE"}).alias("data")
 ).select("data.after.*")  # ถ้าไม่ใช่ Debezium ให้ใช้ "data.*"
 
 # ------------------------------
-# Cleansing
+# cleansing
 # ------------------------------
 cleansed_df = apply_cleansing(decoded_df)
 # ------------------------------
-# Write stream
+# write stream
 # ------------------------------
 DEBUG = True  # True = console, False = Kafka
 
