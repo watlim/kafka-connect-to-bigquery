@@ -1,9 +1,10 @@
-version: "3.8"
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.9
     hostname: zookeeper
     container_name: zookeeper
+    networks:
+      - my_network
     ports:
       - "2181:2181"
     environment:
@@ -14,6 +15,8 @@ services:
     image: confluentinc/cp-server:7.5.9
     hostname: broker
     container_name: broker
+    networks:
+      - my_network
     depends_on:
       - zookeeper
     ports:
@@ -43,6 +46,8 @@ services:
     image: confluentinc/cp-schema-registry:7.5.9
     hostname: schema-registry
     container_name: schema-registry
+    networks:
+      - my_network
     depends_on:
       - broker
     ports:
@@ -56,6 +61,8 @@ services:
     image: confluentinc/cp-kafka-rest:7.5.9
     hostname: kafka-rest
     container_name: kafka-rest
+    networks:
+      - my_network
     depends_on:
       - broker
       - schema-registry
@@ -71,6 +78,8 @@ services:
     image: confluentinc/cp-kafka-connect:7.5.9
     hostname: connect
     container_name: connect
+    networks:
+      - my_network
     depends_on:
       - broker
       - schema-registry
@@ -104,6 +113,7 @@ services:
         echo "Installing Connectors"
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.9.7
         confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:11.3.1
+        confluent-hub install --no-prompt confluentinc/kafka-connect-http-source:1.0.1
 
         echo "Copy MySQL JDBC driver into JDBC connector lib"
         mkdir -p /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
@@ -125,13 +135,16 @@ services:
       - schema-registry
       - connect
       - kafka-rest
+      - ksqldb
     ports:
       - "9021:9021"
+    networks:
+      - my_network
     environment:
       CONTROL_CENTER_BOOTSTRAP_SERVERS: "broker:29092"
       CONTROL_CENTER_CONNECT_CONNECT_DEFAULT_CLUSTER: "connect:8083"
       CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb:8088"
-      CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://ksqldb:8088"
       CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       CONTROL_CENTER_KAFKA_REST_URL: "http://kafka-rest:8082"
       CONTROL_CENTER_REPLICATION_FACTOR: 1
@@ -148,6 +161,8 @@ services:
       - schema-registry
     ports:
       - "8088:8088"
+    networks:
+      - my_network
     environment:
       KSQL_LISTENERS: http://0.0.0.0:8088
       KSQL_BOOTSTRAP_SERVERS: broker:29092
@@ -177,3 +192,7 @@ services:
       - ./gcp_service_account.json:/opt/creds/gcp_service_account.json:ro
 
 
+networks:
+  my_network:
+    external: true
+      
