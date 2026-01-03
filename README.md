@@ -17,7 +17,7 @@ Create pipline kafka-connect-to-bigquery
 ## Features
 - streming data from Kafka
 - Change Data Capture (CDC)
-- Export data near real time
+- Export data real time
 - Data cleansing using Apache Spark
 - Data storage in Google Cloud Storage
 - Data storage in BigQuery
