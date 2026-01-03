@@ -7,7 +7,7 @@ Create pipline kafka-connect-to-bigquery
 - Change Data Capture (CDC)
 - Streams changes through Kafka and writes them to a target database in real time
 - cleansing data using Apache Spark
-- Export datra to BigQuery
+- Export data to BigQuery
 
 ## Tools
 - Apache Kafka
